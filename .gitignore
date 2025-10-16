@@ -4,12 +4,13 @@ node_modules
 # Environment variables
 .env
 
-# Build files
+# Build outputs
 dist
 build
 
-# VS Code settings
+# VS Code / OS
 .vscode
+.DS_Store
 
 # Logs
 *.log

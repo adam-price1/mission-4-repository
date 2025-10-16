@@ -1,71 +1,83 @@
 import React, { useState } from "react";
 import axios from "axios";
-import "./tina.css";
 
-export default function TinaChat() {
+function TinaChat() {
   const [messages, setMessages] = useState([
     {
-      sender: "Tina",
-      text: "I’m Tina. I help you to choose the right insurance policy. May I ask you a few personal questions to make sure I recommend the best policy for you?",
+      from: "Tina",
+      text: "Hi! I’m Tina, your AI Insurance Assistant. How can I help you today?",
     },
   ]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  // ✅ dynamic backend URL (works locally or in Docker)
+  const backendUrl =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = { sender: "Me", text: input.trim() };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setLoading(true);
-
-    const history = messages.map((m) => ({
-      role: m.sender === "Tina" ? "tina" : "user",
-      text: m.text,
-    }));
+    if (!input.trim()) return;
+    setMessages((prev) => [...prev, { from: "Me", text: input }]);
+    const currentMessage = input; // keep a copy
+    setInput(""); // clear immediately for responsiveness
 
     try {
-      const { data } = await axios.post("http://localhost:5000/chat", {
-        message: userMsg.text,
-        history,
+      const res = await axios.post(`${backendUrl}/api/chat`, {
+        message: currentMessage,
       });
-      setMessages((prev) => [...prev, { sender: "Tina", text: data.reply }]);
-    } catch {
+      setMessages((prev) => [...prev, { from: "Tina", text: res.data.reply }]);
+    } catch (err) {
+      console.error("Chat error:", err.message);
       setMessages((prev) => [
         ...prev,
-        { sender: "Tina", text: "Oops, there was a problem." },
+        { from: "Tina", text: "Sorry, I couldn’t reach the server." },
       ]);
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <div className="wrap">
-      <h2>Tina – Your AI Insurance Policy Assistant</h2>
-      <div className="chatbox">
+    <div
+      style={{
+        maxWidth: 500,
+        margin: "40px auto",
+        padding: 20,
+        borderRadius: 8,
+        boxShadow: "0 0 10px #ccc",
+      }}
+    >
+      <h2 style={{ textAlign: "center", color: "#004aad" }}>
+        Tina – Your AI Insurance Policy Assistant
+      </h2>
+      <div
+        style={{
+          height: 300,
+          overflowY: "auto",
+          border: "1px solid #ccc",
+          padding: 10,
+          marginBottom: 10,
+        }}
+      >
         {messages.map((m, i) => (
-          <p key={i} className={m.sender === "Me" ? "me" : "tina"}>
-            <strong>{m.sender}:</strong> {m.text}
-          </p>
+          <div key={i} style={{ margin: "5px 0" }}>
+            <strong>{m.from}:</strong> {m.text}
+          </div>
         ))}
-        {loading && (
-          <p className="tina">
-            <em>Tina is typing…</em>
-          </p>
-        )}
       </div>
-      <div className="inputrow">
-        <input
-          placeholder="Type your message…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <button onClick={sendMessage} disabled={loading}>
-          Submit
-        </button>
-      </div>
+      <input
+        style={{ width: "75%", padding: 5 }}
+        type="text"
+        value={input}
+        placeholder="Type your message..."
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+      />
+      <button
+        style={{ marginLeft: 10, padding: "5px 10px" }}
+        onClick={sendMessage}
+      >
+        Submit
+      </button>
     </div>
   );
 }
+
+export default TinaChat;

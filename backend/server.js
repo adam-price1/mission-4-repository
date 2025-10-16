@@ -1,66 +1,83 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
+import bodyParser from "body-parser";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
+
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+const PORT = process.env.PORT || 5000;
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const SYSTEM_PROMPT = `
-You are Tina, an AI insurance consultant for Turners Cars NZ.
-Start by introducing yourself and asking consent: 
-"I’m Tina. I help you choose the right insurance policy. May I ask a few questions to find the best policy for you?"
+// Models
+const MAIN_MODEL = "gemini-2.5-pro-preview-03-25";
+const FALLBACK_MODEL = "gemini-1.5-flash";
 
-Ask conversational questions about:
-- vehicle type and age,
-- if the user needs coverage for their own car or third-party,
-- their situation (truck, race car, etc).
+// ✅ Health check route
+app.get("/", (req, res) => {
+  res.send("✅ Tina backend is running smoothly!");
+});
 
-Business rules:
-1. MBI is not available for trucks or racing cars.
-2. Comprehensive is only available for vehicles less than 10 years old.
+// ✅ Chat endpoint
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
 
-When ready, recommend 1 or more products (Comprehensive, Third Party, MBI) with reasons.
+  if (!message || message.trim() === "") {
+    return res.status(400).json({ reply: "Please include a valid message." });
+  }
+
+  const prompt = `
+You are Tina, a friendly and helpful AI insurance assistant for Turners.
+Keep your replies short, conversational, and easy to understand (3–5 sentences max).
+Avoid long lists or markdown formatting. Use plain text.
+User said: "${message}"
 `;
 
-app.post("/chat", async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
+    // Try with the main model
+    const model = genAI.getGenerativeModel({ model: MAIN_MODEL });
+    const result = await model.generateContent(prompt);
+    const reply = result.response.text();
 
-    const conversation = [
-      { parts: [{ text: SYSTEM_PROMPT }] },
-      ...history.map((m) => ({
-        parts: [{ text: `${m.role === "tina" ? "Tina" : "User"}: ${m.text}` }],
-      })),
-      { parts: [{ text: `User: ${message}` }] },
-    ];
-
-    const response = await fetch(
-      `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: conversation }),
-      }
-    );
-
-    const data = await response.json();
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Sorry, I didn’t catch that.";
-
-    res.json({ reply });
+    console.log("✅ Reply generated using:", MAIN_MODEL);
+    return res.json({ reply });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ reply: "Server error. Please try again." });
+    console.error("❌ Gemini API error (main):", error.message);
+
+    // Fallback if model overloaded
+    if (
+      error?.response?.data?.error?.status === "UNAVAILABLE" ||
+      error?.response?.data?.error?.code === 503
+    ) {
+      console.log("⚡ Main model overloaded. Switching to fallback model...");
+      try {
+        const fallback = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
+        const result = await fallback.generateContent(prompt);
+        const reply = result.response.text();
+
+        console.log("✅ Reply generated using:", FALLBACK_MODEL);
+        return res.json({ reply });
+      } catch (fallbackError) {
+        console.error("❌ Fallback model failed:", fallbackError.message);
+        return res
+          .status(500)
+          .json({ reply: "Tina is taking a quick nap. Try again soon." });
+      }
+    }
+
+    return res.status(500).json({
+      reply:
+        "Sorry, Tina encountered an issue. Please check your API key or try again later.",
+    });
   }
 });
 
-app.listen(process.env.PORT || 5000, () =>
-  console.log(`Backend running on port ${process.env.PORT || 5000}`)
-);
+// ✅ Start the server
+app.listen(PORT, () => {
+  console.log(`✅ Backend running on port ${PORT}`);
+  console.log(`🌐 Primary Gemini model: ${MAIN_MODEL}`);
+});
