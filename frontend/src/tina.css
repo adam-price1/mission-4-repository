@@ -1,0 +1,50 @@
+.wrap {
+  width: 420px;
+  margin: 40px auto;
+  border: 1px solid #ccc;
+  padding: 16px;
+  border-radius: 10px;
+  font-family: Arial, sans-serif;
+}
+h2 {
+  text-align: center;
+  color: #0b5fa5;
+  margin-top: 0;
+}
+.chatbox {
+  height: 260px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+  background: #f9f9f9;
+  margin-bottom: 10px;
+}
+.tina {
+  color: #0b5fa5;
+}
+.me {
+  color: #222;
+  text-align: right;
+}
+.inputrow {
+  display: flex;
+  gap: 8px;
+}
+.inputrow input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.inputrow button {
+  padding: 8px 14px;
+  background: #0b5fa5;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.inputrow button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
